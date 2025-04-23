@@ -1,9 +1,11 @@
 package com.homework.morosystems.rest;
 
 import com.homework.morosystems.model.UserDto;
+import com.homework.morosystems.model.UserPageResponseDto;
 import com.homework.morosystems.rest.api.UsersApi;
 import com.homework.morosystems.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -13,9 +15,28 @@ public class UserController implements UsersApi {
 
     private final UserService userService;
 
+    @Override
+    public ResponseEntity<UserDto> createUser(UserDto userDto) {
+        return new ResponseEntity<>(userService.createUser(userDto), HttpStatus.CREATED);
+    }
+
+    @Override
+    public ResponseEntity<Void> deleteUser(Long id) {
+        return ResponseEntity.ok(userService.deleteUser(id));
+    }
+
+    @Override
+    public ResponseEntity<UserPageResponseDto> getAllUsers(Integer page, Integer size) {
+        return ResponseEntity.ok(userService.getUsersPageable(page, size));
+    }
 
     @Override
     public ResponseEntity<UserDto> getUserById(Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
+    }
+
+    @Override
+    public ResponseEntity<UserDto> updateUser(Long id, UserDto userDto) {
+        return ResponseEntity.ok(userService.updateUser(id, userDto));
     }
 }

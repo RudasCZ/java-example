@@ -1,28 +1,83 @@
 openapi: 3.0.3
 info:
   title: Users API
-  version: 1.0.0
+  version: 1.1.0
   description: Simple API for managing users.
 
+tags:
+  - name: users
+
+servers:
+  - url: http://localhost:8080
+
 paths:
+  /users:
+    get:
+      tags:
+        - Users
+      summary: Get a list of all users
+      operationId: getAllUsers
+      parameters:
+        - name: page
+          in: query
+          description: Page number (0-based)
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 0
+        - name: size
+          in: query
+          description: Page size
+          required: true
+          schema:
+            type: integer
+            format: int32
+            minimum: 1
+            maximum: 999
+      responses:
+        "200":
+          description: Paginated list of users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPageResponse'
+
+    post:
+      tags:
+        - Users
+      summary: Create a new user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
   /users/{id}:
     get:
       tags:
         - Users
-      summary: Get a user by its ID
-      description: Returns a single user when it exists.
+      summary: Get a user by ID
       operationId: getUserById
       parameters:
         - name: id
           in: path
-          description: Numeric identifier of the user to retrieve
           required: true
           schema:
             type: integer
             format: int64
       responses:
         "200":
-          description: Successful response with the user entity
+          description: The user
           content:
             application/json:
               schema:
@@ -33,6 +88,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      tags:
+        - Users
+      summary: Update an existing user
+      operationId: updateUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/User'
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete a user
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: User deleted successfully
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     User:
@@ -42,6 +152,7 @@ components:
       properties:
         id:
           type: integer
+          readOnly: true
           format: int64
           example: 1
         name:
@@ -49,6 +160,31 @@ components:
           example: Alice
           minLength: 1
           maxLength: 100
+
+    UserPageResponse:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        totalElements:
+          type: integer
+          format: int64
+          example: 100
+        totalPages:
+          type: integer
+          format: int32
+          example: 10
+        currentPage:
+          type: integer
+          format: int32
+          example: 0
+        pageSize:
+          type: integer
+          format: int32
+          example: 10
+
     ErrorResponse:
       type: object
       properties:
