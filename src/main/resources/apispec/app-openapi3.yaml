@@ -1,0 +1,60 @@
+openapi: 3.0.3
+info:
+  title: Users API
+  version: 1.0.0
+  description: Simple API for managing users.
+
+paths:
+  /users/{id}:
+    get:
+      tags:
+        - Users
+      summary: Get a user by its ID
+      description: Returns a single user when it exists.
+      operationId: getUserById
+      parameters:
+        - name: id
+          in: path
+          description: Numeric identifier of the user to retrieve
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Successful response with the user entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    User:
+      type: object
+      required:
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        name:
+          type: string
+          example: Alice
+          minLength: 1
+          maxLength: 100
+    ErrorResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: 404
+        message:
+          type: string
+          example: User with id 999 not found

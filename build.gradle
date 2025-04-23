@@ -1,11 +1,12 @@
 plugins {
-	id 'java'
-	id 'org.springframework.boot' version '3.4.4'
-	id 'io.spring.dependency-management' version '1.1.7'
+	id "java"
+	id "org.openapi.generator" version "$openApiGeneratorVersion"
+	id "org.springframework.boot" version "$springBootVersion"
+	id "io.spring.dependency-management" version "1.1.7"
 }
 
-group = 'com.homework'
-version = '0.0.1-SNAPSHOT'
+group = "com.homework"
+version = "0.0.1-SNAPSHOT"
 
 java {
 	toolchain {
@@ -24,18 +25,75 @@ repositories {
 }
 
 dependencies {
-	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
-	implementation 'org.springframework.boot:spring-boot-starter-web'
-	implementation 'org.liquibase:liquibase-core'
-	compileOnly 'org.projectlombok:lombok'
-	runtimeOnly 'org.postgresql:postgresql'
-	annotationProcessor 'org.projectlombok:lombok'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
-	testImplementation 'org.springframework.security:spring-security-test'
-	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation "org.springframework.boot:spring-boot-starter-data-jpa"
+	implementation "org.springframework.boot:spring-boot-starter-security"
+	implementation "org.springframework.boot:spring-boot-starter-web"
+	implementation "org.springframework.boot:spring-boot-starter-validation"
+	implementation "org.liquibase:liquibase-core:$liquibaseVersion"
+	implementation "org.mapstruct:mapstruct:$mapStructVersion"
+	implementation "org.openapitools:jackson-databind-nullable:$jacksonDatabindNullableVersion"
+	implementation "jakarta.validation:jakarta.validation-api:$jakartaValidationApiVersion"
+
+	compileOnly "org.projectlombok:lombok"
+	runtimeOnly "org.postgresql:postgresql:$postgresqlVersion"
+	annotationProcessor "org.projectlombok:lombok"
+	annotationProcessor "org.mapstruct:mapstruct-processor:$mapStructVersion"
+
+	testImplementation "org.springframework.boot:spring-boot-starter-test"
+	testImplementation "org.springframework.security:spring-security-test"
+	testImplementation "com.h2database:h2:$h2DBVersion"
+	testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
 
-tasks.named('test') {
+dependencyManagement {
+	imports {
+		mavenBom "org.springframework.boot:spring-boot-dependencies:$springBootVersion"
+	}
+}
+
+ext {
+	apiGenPath = "${layout.buildDirectory.get()}/generated/openapi"
+}
+
+openApiGenerate {
+	generatorName = "spring"
+	inputSpec = "$projectDir/src/main/resources/apispec/app-openapi3.yaml".toString()
+	outputDir = "$apiGenPath"
+
+	generateAliasAsModel = true
+	modelNameSuffix = "Dto"
+
+	configOptions = [
+			library                : "spring-cloud",
+			documentationProvider  : "none",
+			useSpringBoot3         : "true",
+			interfaceOnly          : "true",
+			dateLibrary            : "java8",
+			hideGenerationTimestamp: "true",
+			serializableModel      : "true",
+			singleContentTypes     : "true",
+			useBeanValidation      : "true",
+			performBeanValidation  : "true",
+			useTags                : "true",
+			apiPackage             : "com.homework.morosystems.rest.api",
+			modelPackage           : "com.homework.morosystems.model",
+			invokerPackage         : "com.homework.morosystems.invoker",
+	]
+}
+
+compileJava {
+	dependsOn("openApiGenerate")
+	options.compilerArgs = [
+			"-Amapstruct.defaultComponentModel=spring"
+	]
+}
+
+sourceSets {
+	main {
+		java.srcDirs += "$apiGenPath/src/main/java"
+	}
+}
+
+tasks.named("test") {
 	useJUnitPlatform()
 }
