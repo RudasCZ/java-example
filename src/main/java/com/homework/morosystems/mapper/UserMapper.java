@@ -1,6 +1,7 @@
 package com.homework.morosystems.mapper;
 
-import com.homework.morosystems.model.UserDto;
+import com.homework.morosystems.model.UserCreateUpdateDto;
+import com.homework.morosystems.model.UserGetDto;
 import com.homework.morosystems.repository.UserEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -8,11 +9,14 @@ import org.mapstruct.MappingTarget;
 
 @Mapper
 public interface UserMapper {
-    UserDto toDto(UserEntity userEntity);
+
+    UserGetDto toDto(UserEntity userEntity);
 
     @Mapping(target = "id", ignore = true)
-    UserEntity toEntity(UserDto dto);
+    @Mapping(target = "password", ignore = true)
+    UserEntity toEntity(UserCreateUpdateDto dto);
 
     @Mapping(target = "id", ignore = true)
-    void updateEntityFromDto(UserDto dto, @MappingTarget UserEntity entity);
+    @Mapping(target = "password", ignore = true)
+    void updateEntityFromDto(UserCreateUpdateDto dto, @MappingTarget UserEntity entity);
 }

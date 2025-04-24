@@ -1,6 +1,7 @@
 package com.homework.morosystems.rest;
 
-import com.homework.morosystems.model.UserDto;
+import com.homework.morosystems.model.UserCreateUpdateDto;
+import com.homework.morosystems.model.UserGetDto;
 import com.homework.morosystems.model.UserPageResponseDto;
 import com.homework.morosystems.rest.api.UsersApi;
 import com.homework.morosystems.service.UserService;
@@ -16,13 +17,14 @@ public class UserController implements UsersApi {
     private final UserService userService;
 
     @Override
-    public ResponseEntity<UserDto> createUser(UserDto userDto) {
+    public ResponseEntity<UserGetDto> createUser(UserCreateUpdateDto userDto) {
         return new ResponseEntity<>(userService.createUser(userDto), HttpStatus.CREATED);
     }
 
     @Override
     public ResponseEntity<Void> deleteUser(Long id) {
-        return ResponseEntity.ok(userService.deleteUser(id));
+        userService.deleteUser(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 
     @Override
@@ -31,12 +33,12 @@ public class UserController implements UsersApi {
     }
 
     @Override
-    public ResponseEntity<UserDto> getUserById(Long id) {
+    public ResponseEntity<UserGetDto> getUserById(Long id) {
         return ResponseEntity.ok(userService.getUserById(id));
     }
 
     @Override
-    public ResponseEntity<UserDto> updateUser(Long id, UserDto userDto) {
+    public ResponseEntity<UserGetDto> updateUser(Long id, UserCreateUpdateDto userDto) {
         return ResponseEntity.ok(userService.updateUser(id, userDto));
     }
 }

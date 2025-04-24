@@ -3,10 +3,12 @@ package com.homework.morosystems.service;
 import com.homework.morosystems.exception.ApplicationException;
 import com.homework.morosystems.mapper.UserMapper;
 import com.homework.morosystems.mapper.UserMapperImpl;
-import com.homework.morosystems.model.UserDto;
+import com.homework.morosystems.model.UserCreateUpdateDto;
+import com.homework.morosystems.model.UserGetDto;
 import com.homework.morosystems.model.UserPageResponseDto;
 import com.homework.morosystems.repository.UserEntity;
 import com.homework.morosystems.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -24,15 +26,15 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 @SpringBootTest
 class UserServiceTest {
 
     private static final String TEST_NAME = "Alice";
     private static final long TEST_USER_ID = 99L;
+    private static final String TEST_USERNAME = "username";
+    private static final String TEST_PASSWORD = "password";
 
     @InjectMocks
     private UserService userService;
@@ -40,24 +42,40 @@ class UserServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private SecurityUtil securityUtil;
+
     @Spy
     private UserMapper userMapper = new UserMapperImpl();
 
+    private UserEntity userEntity;
+    private UserCreateUpdateDto createUpdateDto;
+
+    @BeforeEach
+    void setUp() {
+        userEntity = mockUserEntity();
+        createUpdateDto = mockUserCreateUpdate();
+    }
+
+    // READ
+
     @Test
-    void getUserById_shouldReturnUserDto() {
-        UserEntity entity = mockEntity();
+    void getUserById_returnsDto() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(userEntity));
 
-        when(userRepository.findById(1L)).thenReturn(Optional.of(entity));
+        UserGetDto result = userService.getUserById(TEST_USER_ID);
 
-        UserDto result = userService.getUserById(1L);
+        assertThat(result)
+                .extracting(UserGetDto::getId, UserGetDto::getName, UserGetDto::getUsername)
+                .containsExactly(TEST_USER_ID, TEST_NAME, TEST_USERNAME);
 
-        assertThat(result.getName()).isEqualTo(TEST_NAME);
-        assertThat(result.getId()).isEqualTo(TEST_USER_ID);
+        verify(userRepository).findById(TEST_USER_ID);
+        verifyNoMoreInteractions(userRepository);
     }
 
     @Test
-    void getUserById_shouldThrowExceptionWhenNotFound() {
-        when(userRepository.findById(anyLong())).thenReturn(Optional.empty());
+    void getUserById_throwsWhenMissing() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.getUserById(TEST_USER_ID))
                 .isInstanceOf(ApplicationException.class)
@@ -66,35 +84,55 @@ class UserServiceTest {
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
         verify(userRepository).findById(TEST_USER_ID);
+        verifyNoMoreInteractions(userRepository);
     }
 
+    // DELETE
+
     @Test
-    void deleteUser_shouldDeleteIfExists() {
-        when(userRepository.existsById(TEST_USER_ID)).thenReturn(true);
+    void deleteUser_deletesOwnUser() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(userEntity));
+        when(securityUtil.isCurrentAuthenticatedUsername(TEST_USERNAME)).thenReturn(true);
 
         userService.deleteUser(TEST_USER_ID);
 
-        verify(userRepository).existsById(TEST_USER_ID);
+        verify(userRepository).findById(TEST_USER_ID);
         verify(userRepository).deleteById(TEST_USER_ID);
+        verifyNoMoreInteractions(userRepository);
     }
 
     @Test
-    void deleteUser_shouldThrowIfNotExists() {
-        when(userRepository.existsById(TEST_USER_ID)).thenReturn(false);
+    void deleteUser_throwsWhenMissing() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> userService.deleteUser(TEST_USER_ID))
                 .isInstanceOf(ApplicationException.class)
-                .hasMessageContaining("not found")
                 .extracting("httpStatus")
                 .isEqualTo(HttpStatus.NOT_FOUND);
 
-        verify(userRepository).existsById(99L);
+        verify(userRepository).findById(TEST_USER_ID);
+        verifyNoMoreInteractions(userRepository);
     }
 
     @Test
-    void getUsersPageable_shouldReturnPage() {
-        UserEntity entity = mockEntity();
-        Page<UserEntity> page = new PageImpl<>(List.of(entity), PageRequest.of(0, 1), 1);
+    void deleteUser_throwsWhenNotOwnUser() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(userEntity));
+        when(securityUtil.isCurrentAuthenticatedUsername(TEST_USERNAME)).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.deleteUser(TEST_USER_ID))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("httpStatus")
+                .isEqualTo(HttpStatus.FORBIDDEN);
+
+        verify(userRepository).findById(TEST_USER_ID);
+        verifyNoMoreInteractions(userRepository);
+    }
+
+    // PAGING
+
+    @Test
+    void getUsersPageable_returnsPage() {
+        Page<UserEntity> page = new PageImpl<>(List.of(userEntity), PageRequest.of(0, 1), 1);
         when(userRepository.findAll(any(Pageable.class))).thenReturn(page);
 
         UserPageResponseDto result = userService.getUsersPageable(0, 1);
@@ -104,47 +142,112 @@ class UserServiceTest {
         assertThat(result.getCurrentPage()).isZero();
 
         verify(userRepository).findAll(any(Pageable.class));
-        verify(userMapper).toDto(entity);
+        verifyNoMoreInteractions(userRepository);
     }
 
     @Test
-    void updateUser_shouldMapAndSave() {
-        UserDto dto = new UserDto().id(null).name("Updated");
-        UserEntity entity = new UserEntity();
-        entity.setName("Old");
-        entity.setId(TEST_USER_ID);
-        when(userRepository.findById(1L)).thenReturn(Optional.of(entity));
-        when(userRepository.save(entity)).thenReturn(entity);
+    void getUsersPageable_throwsOnInvalidParams() {
+        assertThatThrownBy(() -> userService.getUsersPageable(-1, 10))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("httpStatus")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
 
-        UserDto result = userService.updateUser(1L, dto);
+        assertThatThrownBy(() -> userService.getUsersPageable(0, 0))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("httpStatus")
+                .isEqualTo(HttpStatus.BAD_REQUEST);
 
-        assertThat(result.getName()).isEqualTo("Updated");
-        verify(userRepository).findById(1L);
-        verify(userMapper).updateEntityFromDto(dto, entity);
-        verify(userRepository).save(entity);
-        verify(userMapper).toDto(entity);
+        verifyNoInteractions(userRepository);
+    }
+
+
+    // UPDATE
+
+    @Test
+    void updateUser_updatesWithoutPasswordChange() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(userEntity));
+        when(securityUtil.isCurrentAuthenticatedUsername(TEST_USERNAME)).thenReturn(true);
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(userRepository.save(any(UserEntity.class))).thenAnswer(i -> i.getArgument(0));
+
+        createUpdateDto.setPassword(null);
+
+        UserGetDto result = userService.updateUser(TEST_USER_ID, createUpdateDto);
+
+        assertThat(result.getName()).isEqualTo(TEST_NAME);
+        verify(securityUtil, never()).encodePassword(anyString());
+        verify(userRepository).save(any());
     }
 
     @Test
-    void createUser_shouldMapAndSave() {
-        UserDto dto = new UserDto().id(null).name("New");
-        UserEntity entity = new UserEntity();
-        entity.setName("New");
-        entity.setId(TEST_USER_ID);
-        when(userRepository.save(any())).thenReturn(entity);
+    void updateUser_updatesAndHashesPassword() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(userEntity));
+        when(securityUtil.isCurrentAuthenticatedUsername(TEST_USERNAME)).thenReturn(true);
+        when(userRepository.existsByUsername(anyString())).thenReturn(false);
+        when(securityUtil.encodePassword("newPass")).thenReturn("HASHED");
+        when(userRepository.save(any(UserEntity.class))).thenAnswer(i -> i.getArgument(0));
 
-        UserDto result = userService.createUser(dto);
+        createUpdateDto.setPassword("newPass");
 
-        assertThat(result.getName()).isEqualTo("New");
-        verify(userMapper).toEntity(dto);
-        verify(userRepository).save(any(UserEntity.class));
-        verify(userMapper).toDto(entity);
+        userService.updateUser(TEST_USER_ID, createUpdateDto);
+
+        verify(securityUtil).encodePassword("newPass");
+        verify(userRepository).save(any());
     }
 
-    private UserEntity mockEntity() {
+    @Test
+    void updateUser_throwsWhenMissing() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> userService.updateUser(TEST_USER_ID, createUpdateDto))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("httpStatus")
+                .isEqualTo(HttpStatus.NOT_FOUND);
+    }
+
+    @Test
+    void updateUser_throwsWhenNotOwnUser() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(userEntity));
+        when(securityUtil.isCurrentAuthenticatedUsername(TEST_USERNAME)).thenReturn(false);
+
+        assertThatThrownBy(() -> userService.updateUser(TEST_USER_ID, createUpdateDto))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("httpStatus")
+                .isEqualTo(HttpStatus.FORBIDDEN);
+    }
+
+    @Test
+    void updateUser_throwsWhenUsernameExists() {
+        when(userRepository.findById(TEST_USER_ID)).thenReturn(Optional.of(userEntity));
+        when(securityUtil.isCurrentAuthenticatedUsername(TEST_USERNAME)).thenReturn(true);
+        createUpdateDto.setUsername("takenUsername");
+        when(userRepository.existsByUsername("takenUsername")).thenReturn(true);
+
+        assertThatThrownBy(() -> userService.updateUser(TEST_USER_ID, createUpdateDto))
+                .isInstanceOf(ApplicationException.class)
+                .extracting("httpStatus")
+                .isEqualTo(HttpStatus.CONFLICT);
+
+        verify(userRepository).findById(TEST_USER_ID);
+        verify(userRepository).existsByUsername("takenUsername");
+        verifyNoMoreInteractions(userRepository);
+    }
+
+
+    private UserEntity mockUserEntity() {
         UserEntity entity = new UserEntity();
         entity.setId(TEST_USER_ID);
         entity.setName(TEST_NAME);
+        entity.setUsername(TEST_USERNAME);
+        entity.setPassword(TEST_PASSWORD);
         return entity;
+    }
+
+    private UserCreateUpdateDto mockUserCreateUpdate() {
+        UserCreateUpdateDto dto = new UserCreateUpdateDto();
+        dto.setName(TEST_NAME);
+        dto.setUsername(TEST_USERNAME);
+        dto.setPassword(TEST_PASSWORD);
+        return dto;
     }
 }

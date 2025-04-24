@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Users API
-  version: 1.1.0
+  version: 1.2.0
   description: Simple API for managing users.
 
 tags:
@@ -53,14 +53,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/User'
+              $ref: '#/components/schemas/UserCreateUpdate'
       responses:
         "201":
           description: User created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserGet'
 
   /users/{id}:
     get:
@@ -81,7 +81,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserGet'
         "404":
           description: User not found
           content:
@@ -106,14 +106,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/User'
+              $ref: '#/components/schemas/UserCreateUpdate'
       responses:
         "200":
           description: Updated user
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
+                $ref: '#/components/schemas/UserGet'
         "404":
           description: User not found
           content:
@@ -145,19 +145,54 @@ paths:
 
 components:
   schemas:
-    User:
+    UserGet:
+      allOf:
+        - $ref: '#/components/schemas/UserBase'
+        - type: object
+          required:
+            - id
+          properties:
+            id:
+              type: integer
+              readOnly: true
+              format: int64
+              example: 1
+            name:
+              type: string
+              example: Alice
+              minLength: 1
+              maxLength: 100
+            username:
+              type: string
+              example: alice123
+              minLength: 1
+              maxLength: 100
+
+    UserCreateUpdate:
+      allOf:
+        - $ref: '#/components/schemas/UserBase'
+        - type: object
+          description: password is required for creating a new user, but optional for updating an existing user
+          properties:
+            password:
+              type: string
+              minLength: 8
+              maxLength: 100
+
+    UserBase:
       type: object
       required:
         - name
+        - username
       properties:
-        id:
-          type: integer
-          readOnly: true
-          format: int64
-          example: 1
         name:
           type: string
           example: Alice
+          minLength: 1
+          maxLength: 100
+        username:
+          type: string
+          example: alice123
           minLength: 1
           maxLength: 100
 
@@ -167,7 +202,7 @@ components:
         content:
           type: array
           items:
-            $ref: '#/components/schemas/User'
+            $ref: '#/components/schemas/UserGet'
         totalElements:
           type: integer
           format: int64

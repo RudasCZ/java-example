@@ -1,6 +1,7 @@
 package com.homework.morosystems.mapper;
 
-import com.homework.morosystems.model.UserDto;
+import com.homework.morosystems.model.UserCreateUpdateDto;
+import com.homework.morosystems.model.UserGetDto;
 import com.homework.morosystems.repository.UserEntity;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
@@ -17,16 +18,15 @@ class UserMapperTest {
         entity.setId(1L);
         entity.setName("Alice");
 
-        UserDto dto = mapper.toDto(entity);
+        UserGetDto dto = mapper.toDto(entity);
 
         assertThat(dto.getId()).isEqualTo(1L);
         assertThat(dto.getName()).isEqualTo("Alice");
     }
 
     @Test
-    void toEntity_shouldMapDtoToEntityIgnoringId() {
-        UserDto dto = new UserDto();
-        dto.setId(99L);
+    void toEntity_shouldMapDtoToEntity() {
+        UserCreateUpdateDto dto = new UserCreateUpdateDto();
         dto.setName("Bob");
 
         UserEntity entity = mapper.toEntity(dto);
@@ -41,8 +41,7 @@ class UserMapperTest {
         entity.setId(1L);
         entity.setName("Old");
 
-        UserDto dto = new UserDto();
-        dto.setId(123L);
+        UserCreateUpdateDto dto = new UserCreateUpdateDto();
         dto.setName("New");
 
         mapper.updateEntityFromDto(dto, entity);
